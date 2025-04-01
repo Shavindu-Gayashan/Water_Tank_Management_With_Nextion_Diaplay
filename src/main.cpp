@@ -6,6 +6,9 @@
 //Buttons
 NexButton b0 = NexButton(0, 1, "b0");
 
+//Text
+NexText t0 = NexText(0, 2, "t0");
+
 
 NexTouch *nex_listen_list[] = {
   &b0,
@@ -20,11 +23,15 @@ void b0_relesed(void *ptr);
 // Function definitions
 void b0_pressed(void *ptr) {
   digitalWrite(led, HIGH);  // Turn on LED
+  t0.setText("LED ON");  // Update text on the Nextion display
 }
 
 void b0_relesed(void *ptr) {
   digitalWrite(led, LOW);  // Turn off LED
+  t0.setText("LED OFF");  // Update text on the Nextion display
 }
+
+
 void setup() {
   // Initialize Serial first
   Serial.begin(115200);
