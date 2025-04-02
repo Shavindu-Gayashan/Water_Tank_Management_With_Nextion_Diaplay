@@ -1,7 +1,13 @@
 #include <Arduino.h>
 #include <nextion.h>
+#include <EEPROM.h>
 
 #define led 2
+
+#define EEPROM_OFF_LEVEL_ADDR 0
+#define EEPROM_ON_LEVEL_ADDR 4
+#define EEPROM_FULL_HEIGHT_ADDR 8
+#define EEPROM_EMPTY_HEIGHT_ADDR 12
 
 uint32_t OffLevel; // Variable to store the value of OffLevel
 uint32_t OnLevel;  // Variable to store the value of OnLevel
@@ -16,6 +22,7 @@ bool ledState = false;  // Variable to track LED state
 
 //Buttons
 NexButton bSave = NexButton(1, 5, "bSave");
+NexButton bStartStop = NexButton(0, 7, "bStartStop");
 
 //Texts
 //NexText t0 = NexText(0, 2, "t0");
@@ -33,12 +40,16 @@ NexVariable vManualOffState = NexVariable(1, 34, "vManuOffStateB");
 
 NexTouch *nex_listen_list[] = {
   &bSave,
+  &bStartStop,
   NULL
 };
 
 
 // Function declarations
 void bSave_pressed(void *ptr);
+void saveToEEPROM(uint32_t value, int address);
+uint32_t readFromEEPROM(int address);
+void readEEPROM(void *ptr);
 
 void setup() {
   // Initialize Serial first
@@ -49,6 +60,8 @@ void setup() {
   
   // Initialize pins
   pinMode(led, OUTPUT);
+
+  EEPROM.begin(16); // Initialize EEPROM with a size of 16 bytes
   
   // Initialize Nextion
   nexInit();
@@ -56,6 +69,19 @@ void setup() {
 
   // Attach button callbacks
   bSave.attachPush(bSave_pressed, &bSave);
+  bStartStop.attachPush(readEEPROM, &bStartStop);
+
+  //Read Stored values from EEPROM
+  OffLevel = readFromEEPROM(EEPROM_OFF_LEVEL_ADDR);
+  OnLevel = readFromEEPROM(EEPROM_ON_LEVEL_ADDR);
+  FullHeight = readFromEEPROM(EEPROM_FULL_HEIGHT_ADDR);
+  EmptyHeight = readFromEEPROM(EEPROM_EMPTY_HEIGHT_ADDR);
+
+  //Print the loaded values
+  Serial.print("Loaded OffLevel :"); Serial.println(OffLevel);
+  Serial.print("Loaded OnLevel :"); Serial.println(OnLevel);
+  Serial.print("Loaded FullHeight :"); Serial.println(FullHeight);
+  Serial.print("Loaded EmptyHeight :"); Serial.println(EmptyHeight);
   
 }
 
@@ -89,8 +115,45 @@ void bSave_pressed(void *ptr) {
   };
 
   // Attempt to retrieve each value with retries
-  getValueWithRetry(vOffLevel, OffLevel, "OffLevel");
-  getValueWithRetry(vOnLevel, OnLevel, "OnLevel");
-  getValueWithRetry(vFullHeight, FullHeight, "FullHeight");
-  getValueWithRetry(vEmptyHeight, EmptyHeight, "EmptyHeight");
+  if (getValueWithRetry(vOffLevel, OffLevel, "OffLevel")) {
+    saveToEEPROM(OffLevel, EEPROM_OFF_LEVEL_ADDR);
+  }
+  if (getValueWithRetry(vOnLevel, OnLevel, "OnLevel")) {
+    saveToEEPROM(OnLevel, EEPROM_ON_LEVEL_ADDR);
+  }
+  if (getValueWithRetry(vFullHeight, FullHeight, "FullHeight")) {
+    saveToEEPROM(FullHeight, EEPROM_FULL_HEIGHT_ADDR);
+  }
+  if (getValueWithRetry(vEmptyHeight, EmptyHeight, "EmptyHeight")) {
+    saveToEEPROM(EmptyHeight, EEPROM_EMPTY_HEIGHT_ADDR);
+  }
+}
+
+//Save value to EEPROM
+void saveToEEPROM(uint32_t value, int address) {
+  EEPROM.put(address, value); // Store the value in EEPROM at the specified address
+  EEPROM.commit(); // Commit the changes to EEPROM
+  Serial.print("Saved value ");
+  Serial.print(value);
+  Serial.print(" to EEPROM address ");
+  Serial.println(address);
+}
+
+//Read value from EEPROM
+uint32_t readFromEEPROM(int address) {
+  uint32_t value;
+  EEPROM.get(address, value); // Retrieve the value from EEPROM at the specified address
+  return value; // Return the retrieved value
+}
+
+//read saved values from EEPROM ans print (For testing purposes)
+void readEEPROM(void *ptr) {
+  Serial.print("OffLevel: ");
+  Serial.println(EEPROM.read(EEPROM_OFF_LEVEL_ADDR));
+  Serial.print("OnLevel: ");
+  Serial.println(EEPROM.read(EEPROM_ON_LEVEL_ADDR));
+  Serial.print("FullHeight: ");
+  Serial.println(EEPROM.read(EEPROM_FULL_HEIGHT_ADDR));
+  Serial.print("EmptyHeight: ");
+  Serial.println(EEPROM.read(EEPROM_EMPTY_HEIGHT_ADDR));
 }
