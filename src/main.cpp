@@ -69,59 +69,28 @@ void loop() {
 // Function definitions
 void bSave_pressed(void *ptr) {
   Serial.println("Save Button Pressed");
-  if (vOffLevel.getValue(&OffLevel)) {
-    Serial.print("OffLevel is : ");
-    Serial.println(OffLevel);
-  } else {
-    Serial.println("Failed to get value from vOffLevel");
-  }
-  
-  if (vOnLevel.getValue(&OnLevel)) {
-    Serial.print("OnLevel is : ");
-    Serial.println(OnLevel);
-  } else {
-    Serial.println("Failed to get value from vOnLevel");
-  }
-  
-  if (vFullHeight.getValue(&FullHeight)) {
-    Serial.print("FullHeight is : ");
-    Serial.println(FullHeight);
-  } else {
-    Serial.println("Failed to get value from vFullHeight");
-  }
 
-  if (vEmptyHeight.getValue(&EmptyHeight)) {
-    Serial.print("EmptyHeight is : ");
-    Serial.println(EmptyHeight);
-  } else {
-    Serial.println("Failed to get value from vEmptyHeight");
-  }
+  // Retry Logic for getting values
+  auto getValueWithRetry = [](NexVariable &variable, uint32_t &value, const char *name) {
+    const int maxRetries = 3; // Maximum number of retries
+    for (int attempt = 0; attempt < maxRetries; ++attempt) {
+      if (variable.getValue(&value)) {
+        Serial.print(name);
+        Serial.print(" is : ");
+        Serial.println(value);
+        return true; // Successfully retrieved the value
+      } else {
+        Serial.print("Failed to get value from ");
+        Serial.println(name);
+        delay(500); // Wait before retrying
+      }
+    }
+    return false; // Failed after max retries
+  };
 
-  // if (vAutoOnState.getValue(&AutoOnState)) {
-  //   Serial.print("AutoOnState is : ");
-  //   Serial.println(AutoOnState);
-  // } else {
-  //   Serial.println("Failed to get value from vAutoOnStateB");
-  // }
-
-  // if (vAutoOffState.getValue(&AutoOffState)) {
-  //   Serial.print("AutoOffState is : ");
-  //   Serial.println(AutoOffState);
-  // } else {
-  //   Serial.println("Failed to get value from vAutoOffStateB");
-  // }
-
-  // if (vManualOnState.getValue(&ManualOnState)) {
-  //   Serial.print("ManualOnState is : ");
-  //   Serial.println(ManualOnState);
-  // } else {
-  //   Serial.println("Failed to get value from vManuOnStateB");
-  // }
-
-  // if (vManualOffState.getValue(&ManualOffState)) {
-  //   Serial.print("ManualOffState is : ");
-  //   Serial.println(ManualOffState);
-  // } else {
-  //   Serial.println("Failed to get value from vManuOffStateB");
-  // }
+  // Attempt to retrieve each value with retries
+  getValueWithRetry(vOffLevel, OffLevel, "OffLevel");
+  getValueWithRetry(vOnLevel, OnLevel, "OnLevel");
+  getValueWithRetry(vFullHeight, FullHeight, "FullHeight");
+  getValueWithRetry(vEmptyHeight, EmptyHeight, "EmptyHeight");
 }
