@@ -23,9 +23,13 @@ bool ledState = false;  // Variable to track LED state
 //Buttons
 NexButton bSave = NexButton(1, 5, "bSave");
 NexButton bStartStop = NexButton(0, 7, "bStartStop");
+NexButton bSettings = NexButton(0, 12, "bSettings");
 
 //Texts
-//NexText t0 = NexText(0, 2, "t0");
+NexText  tOffLevel = NexText(1, 15, "tOffLevel");
+NexText  tOnLevel = NexText(1, 17, "tOnLevel");
+NexText  tFullHeight = NexText(1, 20, "tFullHeight");
+NexText  tEmptyHeight = NexText(1, 23, "tEmptyHeight");
 
 //Variables
 NexVariable vOffLevel = NexVariable(1, 27, "vOffLevel");
@@ -41,6 +45,7 @@ NexVariable vManualOffState = NexVariable(1, 34, "vManuOffStateB");
 NexTouch *nex_listen_list[] = {
   &bSave,
   &bStartStop,
+  &bSettings,
   NULL
 };
 
@@ -50,6 +55,7 @@ void bSave_pressed(void *ptr);
 void saveToEEPROM(uint32_t value, int address);
 uint32_t readFromEEPROM(int address);
 void readEEPROM(void *ptr);
+void bSettings_pressed(void *ptr);
 
 void setup() {
   // Initialize Serial first
@@ -70,12 +76,14 @@ void setup() {
   // Attach button callbacks
   bSave.attachPush(bSave_pressed, &bSave);
   bStartStop.attachPush(readEEPROM, &bStartStop);
+  bSettings.attachPush(bSettings_pressed, &bSettings);
 
   //Read Stored values from EEPROM
   OffLevel = readFromEEPROM(EEPROM_OFF_LEVEL_ADDR);
   OnLevel = readFromEEPROM(EEPROM_ON_LEVEL_ADDR);
   FullHeight = readFromEEPROM(EEPROM_FULL_HEIGHT_ADDR);
   EmptyHeight = readFromEEPROM(EEPROM_EMPTY_HEIGHT_ADDR);
+
 
   //Print the loaded values
   Serial.print("Loaded OffLevel :"); Serial.println(OffLevel);
@@ -157,3 +165,18 @@ void readEEPROM(void *ptr) {
   Serial.print("EmptyHeight: ");
   Serial.println(EEPROM.read(EEPROM_EMPTY_HEIGHT_ADDR));
 }
+
+
+ void bSettings_pressed(void  *ptr){
+  Serial.println("Settings Button Pressed");
+  vOffLevel.setValue(OffLevel); // Set the value of OffLevel in the Nextion variable
+  vOnLevel.setValue(OnLevel); // Set the value of OnLevel in the Nextion variable
+  vFullHeight.setValue(FullHeight); // Set the value of FullHeight in the Nextion variable
+  vEmptyHeight.setValue(EmptyHeight); // Set the value of EmptyHeight in the Nextion variable
+  
+  tOffLevel.setText(String(OffLevel).c_str()); // Set the text of the OffLevel text field
+  tOnLevel.setText(String(OnLevel).c_str()); // Set the text of the OnLevel text field
+  tFullHeight.setText(String(FullHeight).c_str()); // Set the text of the FullHeight text field
+  tEmptyHeight.setText(String(EmptyHeight).c_str()); // Set the text of the EmptyHeight text field
+
+ }
