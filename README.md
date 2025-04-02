@@ -14,10 +14,12 @@ ESP32-based water level monitoring and control system with Nextion Display inter
 
 ### Main Screen
 ![Main Screen](https://github.com/Shavindu-Gayashan/Water_Tank_Management_With_Nextion_Diaplay/blob/main/Nextion%20program/Screenshots/Dashboard%20UI.png?raw=true)
+
 Shows current water level and pump status
 
 ### Settings Screen
 ![Settings Screen](https://github.com/Shavindu-Gayashan/Water_Tank_Management_With_Nextion_Diaplay/blob/main/Nextion%20program/Screenshots/Settings%20UI.png?raw=true)
+
 Configure water level thresholds and operation modes
 
 ## Hardware Requirements
