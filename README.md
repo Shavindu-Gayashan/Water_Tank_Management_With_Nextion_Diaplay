@@ -1,104 +1,48 @@
-# ESP32 Nextion Display Interface
+# Nextion Display Project
 
-This project demonstrates the integration of a Nextion Display with an ESP32 microcontroller, featuring LED control and variable display functionality.
+ESP32-based water level monitoring and control system with Nextion Display interface.
 
-## Development Environment
+## Features
 
-- Visual Studio Code
-- PlatformIO Extension
-- ESP32 platform
+- Water level monitoring
+- Automatic pump control based on configurable levels
+- Manual and automatic operation modes
+- Persistent settings storage using EEPROM
+- User-friendly touch interface
+
+## Interface Screenshots
+
+### Main Screen
+![Main Screen](Nextion%20Program/Screenshots/main_screen.png)
+Shows current water level and pump status
+
+### Settings Screen
+![Settings Screen](Nextion%20Program/Screenshots/settings_screen.png)
+Configure water level thresholds and operation modes
 
 ## Hardware Requirements
 
 - ESP32 Development Board
 - Nextion Display
-- LED (connected to GPIO2)
-- Connection cables
-- USB cable for programming
-- MicroSD for upload program to Nextion
+- Water level sensor (Ultrasonic Sensor)
+- Relay (in my project DC-AC SSR)
+- Power supply
 
-## Software Dependencies
+## Pin Configuration
 
-- Visual Studio Code
-- PlatformIO Extension
-- [Nextion Library](https://github.com/itead/ITEADLIB_Arduino_Nextion)
+- LED Pin: GPIO2( Built_in_LED)
+- Serial Communication: Default UART pins
 
-## Project Setup
+## Settings
 
-1. **Install Prerequisites:**
-   - Install Visual Studio Code
-   - Install PlatformIO Extension
-   - Clone this repository
+The following parameters can be configured through the interface:
+- Off Level: Water level threshold to turn off pump
+- On Level: Water level threshold to turn on pump
+- Full Height: Maximum tank height reference
+- Empty Height: Minimum tank height reference
 
-2. **Open Project:**
-   - Open VS Code
-   - Click "Open Folder" and select the project directory
-   - Wait for PlatformIO to initialize
+## Installation
 
-3. **Configure platformio.ini:**
-   ```ini
-   [env:esp32doit-devkit-v1]
-   platform = espressif32
-   board = esp32doit-devkit-v1
-   framework = arduino
-   lib_deps = 
-       itead/ITEADLIB_Arduino_Nextion@^0.9.0
-   ```
-
-## Build and Upload
-
-1. Click the PlatformIO icon in VS Code
-2. Use these commands:
-   - Build: Click ✓ (Build)
-   - Upload: Click → (Upload)
-   - Monitor: Click 🔌 (Serial Monitor)
-
-## Wiring Configuration
-
-1. **Nextion Display to ESP32:**
-   - Nextion TX → ESP32 GPIO16 (RX2)
-   - Nextion RX → ESP32 GPIO17 (TX2)
-   - VCC → 5V
-   - GND → GND
-
-2. **LED Connection:**
-   - Built_in LED
-
-## Features
-
-- Toggle LED control with on-screen button
-- Display variable values
-- Real-time status updates
-- Serial monitoring functionality
-
-## Troubleshooting
-
-1. **Serial Communication:**
-   - ESP32 uses Hardware Serial2 for Nextion communication
-   - Make sure TX/RX pins are correctly connected
-   - Default baud rate is 9600
-
-2. **ESP32 Specific:**
-   - Use 3.3V logic level for GPIO pins
-   - Built-in LED is on GPIO2
-   - ESP32 has multiple serial ports available
-
-## Project Structure
-
-```
-Nextion_Display/
-├── src/
-│   └── main.cpp          # Main program file
-├── include/              # Header files
-├── lib/                  # Project specific libraries
-├── platformio.ini        # PlatformIO configuration
-└── README.md            # Project documentation
-```
-
-## Contributing
-
-Feel free to submit issues and pull requests.
-
-## License
-
-This project is open-source and available under the MIT License.
+1. Clone this repository
+2. Upload the Nextion HMI file to your display
+3. Build and flash the ESP32 code using PlatformIO
