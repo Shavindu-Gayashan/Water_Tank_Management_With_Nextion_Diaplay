@@ -28,6 +28,34 @@ void b0_pressed(void *ptr);
 void b0_relesed(void *ptr);
 void b1_pressed(void *ptr);
 
+void setup() {
+  // Initialize Serial first
+  Serial.begin(9600);
+  delay(100);  // Allow time for Serial to initialize
+  Serial.println("\nStarting");
+  Serial.flush();  // Ensure all data is sent before proceeding
+  
+  // Initialize pins
+  pinMode(led, OUTPUT);
+  
+  // Initialize Nextion
+  nexInit();
+  delay(1000);  // Give more time for Nextion to initialize
+
+  // Attach button callbacks
+  b0.attachPush(b0_pressed, &b0);
+  b0.attachPop(b0_relesed, &b0);
+  b1.attachPush(b1_pressed, &b1);
+  
+}
+
+void loop() {
+  
+  // put your main code here, to run repeatedly:
+  nexLoop(nex_listen_list);
+  
+}
+
 // Function definitions
 void b0_pressed(void *ptr) {
   if (ledState) {
@@ -55,32 +83,4 @@ void b1_pressed(void *ptr) {
   } else {
     Serial.println("Failed to get value from va0");
   }
-}
-
-void setup() {
-  // Initialize Serial first
-  Serial.begin(9600);
-  delay(100);  // Allow time for Serial to initialize
-  Serial.println("\nStarting");
-  Serial.flush();  // Ensure all data is sent before proceeding
-  
-  // Initialize pins
-  pinMode(led, OUTPUT);
-  
-  // Initialize Nextion
-  nexInit();
-  delay(1000);  // Give more time for Nextion to initialize
-
-  // Attach button callbacks
-  b0.attachPush(b0_pressed, &b0);
-  b0.attachPop(b0_relesed, &b0);
-  b1.attachPush(b1_pressed, &b1);
-  
-}
-
-void loop() {
-  
-  // put your main code here, to run repeatedly:
-  nexLoop(nex_listen_list);
-  
 }
