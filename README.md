@@ -47,6 +47,21 @@ The system allows configuration of:
 
 All settings are preserved in EEPROM memory.
 
+## User Interface
+
+### Main Screen
+![Main Screen](https://github.com/Shavindu-Gayashan/Water_Tank_Management_With_Nextion_Diaplay/blob/main/Nextion%20program/Screenshots/Dashboard%20UI.png)
+- Auto/Manual mode selection
+- Start/Stop controls
+- Real-time level display
+- Settings access
+
+### Settings Screen
+![Settings Screen](https://github.com/Shavindu-Gayashan/Water_Tank_Management_With_Nextion_Diaplay/blob/main/Nextion%20program/Screenshots/Settings%20UI.png)
+- Level parameter configuration
+- State controls for Auto/Manual modes
+- Save/Back navigation options
+
 ## License
 
 This project is open source and available under the MIT License.
