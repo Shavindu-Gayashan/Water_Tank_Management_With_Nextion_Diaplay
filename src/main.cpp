@@ -8,15 +8,22 @@
 #define EEPROM_ON_LEVEL_ADDR 4
 #define EEPROM_FULL_HEIGHT_ADDR 8
 #define EEPROM_EMPTY_HEIGHT_ADDR 12
+#define EEPROM_AUTO_ON_STATE_ADDR 16
+#define EEPROM_AUTO_OFF_STATE_ADDR 20
+#define EEPROM_MANUAL_ON_STATE_ADDR 24
+#define EEPROM_MANUAL_OFF_STATE_ADDR 28
 
 uint32_t OffLevel; // Variable to store the value of OffLevel
 uint32_t OnLevel;  // Variable to store the value of OnLevel
 uint32_t FullHeight; // Variable to store the value of FullHeight
 uint32_t EmptyHeight; // Variable to store the value of EmptyHeight
+
 uint32_t AutoOnState; // Variable to store the value of AutoOnStateB
 uint32_t AutoOffState; // Variable to store the value of AutoOffStateB
 uint32_t ManualOnState; // Variable to store the value of ManualOnStateB
 uint32_t ManualOffState; // Variable to store the value of ManualOffStateB
+
+bool mode = false; // Variable to track the mode (true for manual, false for automatic)
 
 bool ledState = false;  // Variable to track LED state
 
@@ -24,6 +31,9 @@ bool ledState = false;  // Variable to track LED state
 NexButton bSave = NexButton(1, 5, "bSave");
 NexButton bStartStop = NexButton(0, 7, "bStartStop");
 NexButton bSettings = NexButton(0, 12, "bSettings");
+NexButton bBack = NexButton(1, 4, "bBack");
+NexButton bAutoOnSettings = NexButton(1, 2, "bAuto");
+NexButton bAutoOffSettings = NexButton(1, 3, "bManual");
 
 //Texts
 NexText  tOffLevel = NexText(1, 15, "tOffLevel");
@@ -36,16 +46,24 @@ NexVariable vOffLevel = NexVariable(1, 27, "vOffLevel");
 NexVariable vOnLevel = NexVariable(1, 28, "vOnLevel");
 NexVariable vFullHeight = NexVariable(1, 29, "vFullHeight");
 NexVariable vEmptyHeight = NexVariable(1, 30, "vEmptyHeight");
+
 NexVariable vAutoOnState = NexVariable(1, 31, "vAutoOnStateB");
 NexVariable vAutoOffState = NexVariable(1, 32, "vAutoOffStateB");
 NexVariable vManualOnState = NexVariable(1, 33, "vManuOnStateB");
 NexVariable vManualOffState = NexVariable(1, 34, "vManuOffStateB");
+
+//DualStateButtons
+NexDSButton btAutoOn = NexDSButton(1, 25, "btAutoOn");
+NexDSButton btAutoOff = NexDSButton(1, 26, "btAutoOff");
 
 
 NexTouch *nex_listen_list[] = {
   &bSave,
   &bStartStop,
   &bSettings,
+  &bBack,
+  &bAutoOnSettings,
+  &bAutoOffSettings,
   NULL
 };
 
@@ -56,6 +74,7 @@ void saveToEEPROM(uint32_t value, int address);
 uint32_t readFromEEPROM(int address);
 void readEEPROM(void *ptr);
 void bSettings_pressed(void *ptr);
+void bBack_pressed(void *ptr);
 
 void setup() {
   // Initialize Serial first
@@ -67,7 +86,7 @@ void setup() {
   // Initialize pins
   pinMode(led, OUTPUT);
 
-  EEPROM.begin(16); // Initialize EEPROM with a size of 16 bytes
+  EEPROM.begin(32); // Initialize EEPROM with a size of 16 bytes
   
   // Initialize Nextion
   nexInit();
@@ -77,6 +96,7 @@ void setup() {
   bSave.attachPush(bSave_pressed, &bSave);
   bStartStop.attachPush(readEEPROM, &bStartStop);
   bSettings.attachPush(bSettings_pressed, &bSettings);
+  bBack.attachPush(bBack_pressed, &bBack);
 
   //Read Stored values from EEPROM
   OffLevel = readFromEEPROM(EEPROM_OFF_LEVEL_ADDR);
@@ -105,7 +125,7 @@ void bSave_pressed(void *ptr) {
   Serial.println("Save Button Pressed");
 
   // Retry Logic for getting values
-  auto getValueWithRetry = [](NexVariable &variable, uint32_t &value, const char *name) {
+  auto getVeriableValueWithRetry = [](NexVariable &variable, uint32_t &value, const char *name) {
     const int maxRetries = 3; // Maximum number of retries
     for (int attempt = 0; attempt < maxRetries; ++attempt) {
       if (variable.getValue(&value)) {
@@ -122,18 +142,59 @@ void bSave_pressed(void *ptr) {
     return false; // Failed after max retries
   };
 
+  //Retry Logic for getting values from DualStateButtons
+  auto getDualStateButtonValueWithRetry = [](NexDSButton &button, uint32_t &value, const char *name) {
+    const int maxRetries = 3; // Maximum number of retries
+    for (int attempt = 0; attempt < maxRetries; ++attempt) {
+      if (button.getValue(&value)) {
+        Serial.print(name);
+        Serial.print(" is : ");
+        Serial.println(value);
+        return true; // Successfully retrieved the value
+      } else {
+        Serial.print("Failed to get value from ");
+        Serial.println(name);
+        delay(500); // Wait before retrying
+      }
+    }
+    return false; // Failed after max retries
+  };
+
   // Attempt to retrieve each value with retries
-  if (getValueWithRetry(vOffLevel, OffLevel, "OffLevel")) {
+  if (getVeriableValueWithRetry(vOffLevel, OffLevel, "OffLevel")) {
     saveToEEPROM(OffLevel, EEPROM_OFF_LEVEL_ADDR);
   }
-  if (getValueWithRetry(vOnLevel, OnLevel, "OnLevel")) {
+  if (getVeriableValueWithRetry(vOnLevel, OnLevel, "OnLevel")) {
     saveToEEPROM(OnLevel, EEPROM_ON_LEVEL_ADDR);
   }
-  if (getValueWithRetry(vFullHeight, FullHeight, "FullHeight")) {
+  if (getVeriableValueWithRetry(vFullHeight, FullHeight, "FullHeight")) {
     saveToEEPROM(FullHeight, EEPROM_FULL_HEIGHT_ADDR);
   }
-  if (getValueWithRetry(vEmptyHeight, EmptyHeight, "EmptyHeight")) {
+  if (getVeriableValueWithRetry(vEmptyHeight, EmptyHeight, "EmptyHeight")) {
     saveToEEPROM(EmptyHeight, EEPROM_EMPTY_HEIGHT_ADDR);
+  }
+  // Get the button color
+  uint32_t buttonColor;
+  Serial.println("Getting button color...");
+  if (bAutoOnSettings.Get_font_color_pco(&buttonColor)) {
+    Serial.print("Button font color is: ");
+    Serial.println(buttonColor); // Print the button color for debugging
+    if (buttonColor == 24521) {  // Green color
+      if (getDualStateButtonValueWithRetry(btAutoOn, AutoOnState, "AutoOnState")) {
+        saveToEEPROM(AutoOnState, EEPROM_AUTO_ON_STATE_ADDR);
+      }
+      if (getDualStateButtonValueWithRetry(btAutoOff, AutoOffState, "AutoOffState")) {
+        saveToEEPROM(AutoOffState, EEPROM_AUTO_OFF_STATE_ADDR);
+      }
+    }
+    else if (buttonColor == 65535) {  // White color
+      if (getDualStateButtonValueWithRetry(btAutoOn, ManualOnState, "ManualOnState")) {
+        saveToEEPROM(ManualOnState, EEPROM_MANUAL_ON_STATE_ADDR);
+      }
+      if (getDualStateButtonValueWithRetry(btAutoOff, ManualOffState, "ManualOffState")) {
+        saveToEEPROM(ManualOffState, EEPROM_MANUAL_OFF_STATE_ADDR);
+      }
+    }
   }
 }
 
@@ -164,6 +225,16 @@ void readEEPROM(void *ptr) {
   Serial.println(EEPROM.read(EEPROM_FULL_HEIGHT_ADDR));
   Serial.print("EmptyHeight: ");
   Serial.println(EEPROM.read(EEPROM_EMPTY_HEIGHT_ADDR));
+
+  Serial.print("AutoOnState: ");
+  Serial.println(EEPROM.read(EEPROM_AUTO_ON_STATE_ADDR));
+  Serial.print("AutoOffState: ");
+  Serial.println(EEPROM.read(EEPROM_AUTO_OFF_STATE_ADDR));
+  Serial.print("ManualOnState: ");
+  Serial.println(EEPROM.read(EEPROM_MANUAL_ON_STATE_ADDR));
+  Serial.print("ManualOffState: ");
+  Serial.println(EEPROM.read(EEPROM_MANUAL_OFF_STATE_ADDR));
+  Serial.println("EEPROM values read successfully.");
 }
 
 
@@ -173,10 +244,14 @@ void readEEPROM(void *ptr) {
   vOnLevel.setValue(OnLevel); // Set the value of OnLevel in the Nextion variable
   vFullHeight.setValue(FullHeight); // Set the value of FullHeight in the Nextion variable
   vEmptyHeight.setValue(EmptyHeight); // Set the value of EmptyHeight in the Nextion variable
-  
+
   tOffLevel.setText(String(OffLevel).c_str()); // Set the text of the OffLevel text field
   tOnLevel.setText(String(OnLevel).c_str()); // Set the text of the OnLevel text field
   tFullHeight.setText(String(FullHeight).c_str()); // Set the text of the FullHeight text field
   tEmptyHeight.setText(String(EmptyHeight).c_str()); // Set the text of the EmptyHeight text field
 
+ }
+
+ void bBack_pressed(void *ptr) {
+  Serial.println("Back Button Pressed");
  }
