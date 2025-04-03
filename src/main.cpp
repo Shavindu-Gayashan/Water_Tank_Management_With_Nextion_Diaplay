@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <nextion.h>
 #include <EEPROM.h>
+#include <Wire.h>
 
 #define led 2
 
@@ -12,6 +13,13 @@
 #define EEPROM_AUTO_OFF_STATE_ADDR 20
 #define EEPROM_MANUAL_ON_STATE_ADDR 24
 #define EEPROM_MANUAL_OFF_STATE_ADDR 28
+
+#define TRIGGER_PIN 12
+#define ECHO_PIN 13
+#define SoundSpeed 0.034 // Speed of sound in cm/us
+#define NUM_SAMPLES 5 // Number of samples to average
+
+int currentPage = 0;
 
 uint32_t OffLevel; // Variable to store the value of OffLevel
 uint32_t OnLevel;  // Variable to store the value of OnLevel
@@ -40,6 +48,7 @@ NexText  tOffLevel = NexText(1, 15, "tOffLevel");
 NexText  tOnLevel = NexText(1, 17, "tOnLevel");
 NexText  tFullHeight = NexText(1, 20, "tFullHeight");
 NexText  tEmptyHeight = NexText(1, 23, "tEmptyHeight");
+NexText tWaterLevel = NexText(0, 13, "tWaterLevel");
 
 //Variables
 NexVariable vOffLevel = NexVariable(1, 27, "vOffLevel");
@@ -75,6 +84,7 @@ uint32_t readFromEEPROM(int address);
 void readEEPROM(void *ptr);
 void bSettings_pressed(void *ptr);
 void bBack_pressed(void *ptr);
+float getDistence();
 
 void setup() {
   // Initialize Serial first
@@ -85,6 +95,8 @@ void setup() {
   
   // Initialize pins
   pinMode(led, OUTPUT);
+  pinMode(TRIGGER_PIN, OUTPUT); // Set the trigger pin as output
+  pinMode(ECHO_PIN, INPUT); // Set the echo pin as input
 
   EEPROM.begin(32); // Initialize EEPROM with a size of 16 bytes
   
@@ -248,6 +260,7 @@ void readEEPROM(void *ptr) {
 
  void bSettings_pressed(void  *ptr){
   Serial.println("Settings Button Pressed");
+  currentPage = 1;
   vOffLevel.setValue(OffLevel); // Set the value of OffLevel in the Nextion variable
   vOnLevel.setValue(OnLevel); // Set the value of OnLevel in the Nextion variable
   vFullHeight.setValue(FullHeight); // Set the value of FullHeight in the Nextion variable
@@ -264,7 +277,7 @@ void readEEPROM(void *ptr) {
   vManualOffState.setValue(ManualOffState); // Set the value of ManualOffState in the Nextion variable
 
   //Noob code to set veriable values and button stattes. i will fix this Later
-  
+
   String cmd = "vAutoOnState.val=" + String(AutoOnState); // Create the command string to set the value of AutoOnState in the Nextion variable
   sendCommand(cmd.c_str()); // Send the command to the Nextion display
   cmd = "vAutoOffState.val=" + String(AutoOffState); // Create the command string to set the value of AutoOffState in the Nextion variable
@@ -282,4 +295,46 @@ void readEEPROM(void *ptr) {
 
  void bBack_pressed(void *ptr) {
   Serial.println("Back Button Pressed");
+  currentPage = 0;
  }
+
+ float getDistence() {
+  if (currentPage != 0) {
+    return -1; // Return -1 if not on the main page
+  }
+  
+  float distances[NUM_SAMPLES];
+  int validSamples = 0;
+
+  // Take multiple samples
+  for (int i = 0; i < NUM_SAMPLES && validSamples < NUM_SAMPLES; i++) {
+    digitalWrite(TRIGGER_PIN, LOW);
+    delayMicroseconds(2);
+    digitalWrite(TRIGGER_PIN, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(TRIGGER_PIN, LOW);
+
+    long duration = pulseIn(ECHO_PIN, HIGH, 30000);
+    
+    if (duration > 0) {  // Check if we got a valid reading
+      float distance = (duration * SoundSpeed) / 2;
+      if (distance >= 2.0 && distance <= 400.0) {
+        distances[validSamples++] = distance;
+      }
+    }
+    
+    delay(10);  // Reduced delay between samples
+  }
+
+  // If we have enough valid samples, return their average
+  if (validSamples > 0) {
+    float sum = 0;
+    for (int i = 0; i < validSamples; i++) {
+      sum += distances[i];
+    }
+    float average = sum / validSamples;
+    return average;
+  }
+
+  return -1;  // Return -1 if no valid readings
+}
