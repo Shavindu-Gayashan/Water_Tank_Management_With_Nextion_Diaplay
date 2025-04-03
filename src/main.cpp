@@ -19,6 +19,11 @@
 #define NUM_SAMPLES 5    // Number of samples to average
 #define READING_INTERVAL 1000  // Read water level every 1000ms (1 second)
 
+constexpr float MIN_VALID_DISTANCE = 2.0;    // cm
+constexpr float MAX_VALID_DISTANCE = 400.0;  // cm
+constexpr int MIN_LEVEL = 0;
+constexpr int MAX_LEVEL = 100;
+
 int currentPage = 0;
 int previousWaterLevel; // Variable to store the previous water level
 int waterLevel;       // Variable to store the current water level
@@ -47,6 +52,7 @@ NexButton bBack = NexButton(1, 4, "bBack");
 NexButton bAutoOnSettings = NexButton(1, 2, "bAuto");
 NexButton bAutoOffSettings = NexButton(1, 3, "bManual");
 
+
 // Texts
 NexText tOffLevel = NexText(1, 15, "tOffLevel");
 NexText tOnLevel = NexText(1, 17, "tOnLevel");
@@ -68,6 +74,9 @@ NexVariable vManualOffState = NexVariable(1, 34, "vManuOffStateB");
 // DualStateButtons
 NexDSButton btAutoOn = NexDSButton(1, 25, "btAutoOn");
 NexDSButton btAutoOff = NexDSButton(1, 26, "btAutoOff");
+
+//pictures
+NexPicture pError = NexPicture(0, 14, "pError");
 
 NexTouch *nex_listen_list[] = {
     &bSave,
@@ -365,39 +374,61 @@ float getDistence()
   return totalDistance / NUM_SAMPLES;
 }
 
-int calcuateWaterLevel(float distance)
-{
-  // Validate distance is within bounds
-  if (distance < FullHeight) distance = FullHeight;
-  if (distance > EmptyHeight) distance = EmptyHeight;
-  
-  // Calculate the water level based on the distance and the height of the tank
-  int level = map(distance, EmptyHeight, FullHeight, 0, 100);
-  
-  // Ensure the level is between 0 and 100
-  level = constrain(level, 0, 100);
-  return level;
+int calcuateWaterLevel(float distance) {
+    // Validate input parameters
+    if (distance < MIN_VALID_DISTANCE || distance > MAX_VALID_DISTANCE) {
+        return -1; // Invalid parameters
+    }
+
+    // Calculate the water level percentage
+    int level = static_cast<int>(
+        ((EmptyHeight - distance) * MAX_LEVEL) / (EmptyHeight - FullHeight)
+    );
+    
+    return constrain(level, MIN_LEVEL, MAX_LEVEL);
 }
 
-int getWaterLevel()
-{
-  static int lastValidLevel = 0;
-  float distance = getDistence();
-  
-  // Basic validation of the distance reading
-  if (distance <= 0 || distance > 400) {  // 400cm is typical max range for HC-SR04
-    return lastValidLevel;  // Return last valid reading if current reading is invalid
-  }
-  
-  int currentLevel = calcuateWaterLevel(distance);
-  
-  // Only update display if level has changed
-  if (currentLevel != lastValidLevel) {
+int getWaterLevel() {
+    static int lastValidLevels[3] = {0, 0, 0};  // Rolling buffer for last 3 valid readings
+    static int validReadingCount = 0;
+    
+    float distance = getDistence();
+    
+    // Validate distance reading
+    if (distance <= MIN_VALID_DISTANCE || distance > MAX_VALID_DISTANCE) {
+        pError.setPic(12);  // Show error picture
+        tWaterLevel.setText("Error");
+        return lastValidLevels[0];  // Return most recent valid reading
+    }
+    
+    int currentLevel = calcuateWaterLevel(distance);
+    if (currentLevel < 0) {  // Invalid calculation
+        pError.setPic(12);
+        tWaterLevel.setText("Error");
+        return lastValidLevels[0];
+    }
+    
+    // Shift previous readings and add new one
+    for (int i = 2; i > 0; i--) {
+        lastValidLevels[i] = lastValidLevels[i-1];
+    }
+    lastValidLevels[0] = currentLevel;
+    
+    if (validReadingCount < 3) validReadingCount++;
+    
+    // Calculate smoothed reading
+    int smoothedLevel = 0;
+    for (int i = 0; i < validReadingCount; i++) {
+        smoothedLevel += lastValidLevels[i];
+    }
+    smoothedLevel /= validReadingCount;
+    
+    // Update display
+    pError.setPic(15);  // Hide error picture
     char buffer[10];
-    sprintf(buffer, "%d", currentLevel);
+    sprintf(buffer, "%d", smoothedLevel);
     tWaterLevel.setText(buffer);
-    lastValidLevel = currentLevel;
-  }
-  
-  return currentLevel;
+    
+    return smoothedLevel;
 }
+
