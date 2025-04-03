@@ -258,7 +258,27 @@ void readEEPROM(void *ptr) {
   tFullHeight.setText(String(FullHeight).c_str()); // Set the text of the FullHeight text field
   tEmptyHeight.setText(String(EmptyHeight).c_str()); // Set the text of the EmptyHeight text field
 
- }
+  vAutoOffState.setValue(AutoOffState); // Set the value of AutoOffState in the Nextion variable
+  vAutoOnState.setValue(AutoOnState); // Set the value of AutoOnState in the Nextion variable
+  vManualOnState.setValue(ManualOnState); // Set the value of ManualOnState in the Nextion variable
+  vManualOffState.setValue(ManualOffState); // Set the value of ManualOffState in the Nextion variable
+
+  //Noob code to set veriable values and button stattes. i will fix this Later
+  
+  String cmd = "vAutoOnState.val=" + String(AutoOnState); // Create the command string to set the value of AutoOnState in the Nextion variable
+  sendCommand(cmd.c_str()); // Send the command to the Nextion display
+  cmd = "vAutoOffState.val=" + String(AutoOffState); // Create the command string to set the value of AutoOffState in the Nextion variable
+  sendCommand(cmd.c_str()); // Send the command to the Nextion display
+  cmd = "vManuOnState.val=" + String(ManualOnState); // Create the command string to set the value of ManualOnState in the Nextion variable
+  sendCommand(cmd.c_str()); // Send the command to the Nextion display
+  cmd = "vManuOffState.val=" + String(ManualOffState); // Create the command string to set the value of ManualOffState in the Nextion variable
+  sendCommand(cmd.c_str()); // Send the command to the Nextion display
+  cmd = "btAutoOn.val=" + String(AutoOnState); // Create the command string to set the value of AutoOnState in the Nextion dual state button
+  sendCommand(cmd.c_str()); // Send the command to the Nextion display
+  cmd = "btAutoOff.val=" + String(AutoOffState); // Create the command string to set the value of AutoOffState in the Nextion dual state button
+  sendCommand(cmd.c_str()); // Send the command to the Nextion display
+
+}
 
  void bBack_pressed(void *ptr) {
   Serial.println("Back Button Pressed");
