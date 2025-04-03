@@ -103,6 +103,10 @@ void setup() {
   OnLevel = readFromEEPROM(EEPROM_ON_LEVEL_ADDR);
   FullHeight = readFromEEPROM(EEPROM_FULL_HEIGHT_ADDR);
   EmptyHeight = readFromEEPROM(EEPROM_EMPTY_HEIGHT_ADDR);
+  AutoOnState = readFromEEPROM(EEPROM_AUTO_ON_STATE_ADDR);
+  AutoOffState = readFromEEPROM(EEPROM_AUTO_OFF_STATE_ADDR);
+  ManualOnState = readFromEEPROM(EEPROM_MANUAL_ON_STATE_ADDR);
+  ManualOffState = readFromEEPROM(EEPROM_MANUAL_OFF_STATE_ADDR);
 
 
   //Print the loaded values
@@ -110,6 +114,10 @@ void setup() {
   Serial.print("Loaded OnLevel :"); Serial.println(OnLevel);
   Serial.print("Loaded FullHeight :"); Serial.println(FullHeight);
   Serial.print("Loaded EmptyHeight :"); Serial.println(EmptyHeight);
+  Serial.print("Loaded AutoOnState :"); Serial.println(AutoOnState);
+  Serial.print("Loaded AutoOffState :"); Serial.println(AutoOffState);
+  Serial.print("Loaded ManualOnState :"); Serial.println(ManualOnState);
+  Serial.print("Loaded ManualOffState :"); Serial.println(ManualOffState);
   
 }
 
