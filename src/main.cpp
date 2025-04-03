@@ -13,20 +13,20 @@
 #define EEPROM_MANUAL_ON_STATE_ADDR 24
 #define EEPROM_MANUAL_OFF_STATE_ADDR 28
 
-#define TRIGGER_PIN 25 
-#define ECHO_PIN 26      
-#define SoundSpeed 0.034 // Speed of sound in cm/us
-#define NUM_SAMPLES 5    // Number of samples to average
-#define READING_INTERVAL 1000  // Read water level every 1000ms (1 second)
+#define TRIGGER_PIN 25
+#define ECHO_PIN 26
+#define SoundSpeed 0.034      // Speed of sound in cm/us
+#define NUM_SAMPLES 5         // Number of samples to average
+#define READING_INTERVAL 1000 // Read water level every 1000ms (1 second)
 
-constexpr float MIN_VALID_DISTANCE = 2.0;    // cm
-constexpr float MAX_VALID_DISTANCE = 400.0;  // cm
+constexpr float MIN_VALID_DISTANCE = 2.0;   // cm
+constexpr float MAX_VALID_DISTANCE = 400.0; // cm
 constexpr int MIN_LEVEL = 0;
 constexpr int MAX_LEVEL = 100;
 
 int currentPage = 0;
 int previousWaterLevel; // Variable to store the previous water level
-int waterLevel;       // Variable to store the current water level
+int waterLevel;         // Variable to store the current water level
 
 uint32_t OffLevel;    // Variable to store the value of OffLevel
 uint32_t OnLevel;     // Variable to store the value of OnLevel
@@ -40,9 +40,15 @@ uint32_t ManualOffState; // Variable to store the value of ManualOffStateB
 
 bool mode = false; // Variable to track the mode (true for manual, false for automatic)
 
-bool ledState = false; // Variable to track LED state
+bool ledState = false;   // Variable to track LED state
+bool motorState = false; // Variable to track motor state
 
-unsigned long lastReadTime = 0;  // To store the last reading time
+unsigned long lastReadTime = 0; // To store the last reading time
+
+unsigned long lastModeCheckTime = 0;
+unsigned long lastMotorCheckTime = 0;
+const unsigned long MODE_CHECK_INTERVAL = 100;  // 100ms between mode checks
+const unsigned long MOTOR_CHECK_INTERVAL = 100; // 100ms between motor state checks
 
 // Buttons
 NexButton bSave = NexButton(1, 5, "bSave");
@@ -51,7 +57,8 @@ NexButton bSettings = NexButton(0, 12, "bSettings");
 NexButton bBack = NexButton(1, 4, "bBack");
 NexButton bAutoOnSettings = NexButton(1, 2, "bAuto");
 NexButton bAutoOffSettings = NexButton(1, 3, "bManual");
-
+NexButton bAutoONDashboard = NexButton(0, 10, "bAuto");
+NexButton bAutoOFFDashboard = NexButton(0, 11, "bManual");
 
 // Texts
 NexText tOffLevel = NexText(1, 15, "tOffLevel");
@@ -75,7 +82,7 @@ NexVariable vManualOffState = NexVariable(1, 34, "vManuOffStateB");
 NexDSButton btAutoOn = NexDSButton(1, 25, "btAutoOn");
 NexDSButton btAutoOff = NexDSButton(1, 26, "btAutoOff");
 
-//pictures
+// pictures
 NexPicture pError = NexPicture(0, 14, "pError");
 
 NexTouch *nex_listen_list[] = {
@@ -85,6 +92,8 @@ NexTouch *nex_listen_list[] = {
     &bBack,
     &bAutoOnSettings,
     &bAutoOffSettings,
+    &bAutoONDashboard,
+    &bAutoOFFDashboard,
     NULL};
 
 // Function declarations
@@ -97,6 +106,8 @@ void bBack_pressed(void *ptr);
 float getDistence();
 int calcuateWaterLevel(float distance);
 int getWaterLevel();
+void setMotorState();
+void setSelectedMode();
 
 void setup()
 {
@@ -154,17 +165,28 @@ void setup()
 
 void loop()
 {
-  // put your main code here, to run repeatedly:
   nexLoop(nex_listen_list);
-  
   unsigned long currentTime = millis();
-  
+
   if (currentPage == 0 && (currentTime - lastReadTime >= READING_INTERVAL))
   {
-    waterLevel = getWaterLevel(); // Get the distance from the ultrasonic sensor
+    waterLevel = getWaterLevel();
     Serial.print("Water Level : ");
-    Serial.println(waterLevel); // Print the distance for debugging
-    lastReadTime = currentTime;  // Update the last read time
+    Serial.println(waterLevel);
+    lastReadTime = currentTime;
+  }
+
+  if (currentPage == 0)
+  {
+    if (currentTime - lastModeCheckTime >= MODE_CHECK_INTERVAL) {
+      setSelectedMode();
+      lastModeCheckTime = currentTime;
+    }
+    
+    if (currentTime - lastMotorCheckTime >= MOTOR_CHECK_INTERVAL) {
+      setMotorState();
+      lastMotorCheckTime = currentTime;
+    }
   }
 }
 
@@ -355,9 +377,10 @@ float getDistence()
 {
   float samples[NUM_SAMPLES];
   float totalDistance = 0;
-  
+
   // Take multiple samples
-  for(int i = 0; i < NUM_SAMPLES; i++) {
+  for (int i = 0; i < NUM_SAMPLES; i++)
+  {
     digitalWrite(TRIGGER_PIN, LOW);
     delayMicroseconds(2);
     digitalWrite(TRIGGER_PIN, HIGH);
@@ -369,66 +392,179 @@ float getDistence()
     totalDistance += samples[i];
     delay(10); // Short delay between samples
   }
-  
+
   // Return average distance
   return totalDistance / NUM_SAMPLES;
 }
 
-int calcuateWaterLevel(float distance) {
-    // Validate input parameters
-    if (distance < MIN_VALID_DISTANCE || distance > MAX_VALID_DISTANCE) {
-        return -1; // Invalid parameters
-    }
+int calcuateWaterLevel(float distance)
+{
+  // Validate input parameters
+  if (distance < MIN_VALID_DISTANCE || distance > MAX_VALID_DISTANCE)
+  {
+    return -1; // Invalid parameters
+  }
 
-    // Calculate the water level percentage
-    int level = static_cast<int>(
-        ((EmptyHeight - distance) * MAX_LEVEL) / (EmptyHeight - FullHeight)
-    );
-    
-    return constrain(level, MIN_LEVEL, MAX_LEVEL);
+  // Calculate the water level percentage
+  int level = static_cast<int>(
+      ((EmptyHeight - distance) * MAX_LEVEL) / (EmptyHeight - FullHeight));
+
+  return constrain(level, MIN_LEVEL, MAX_LEVEL);
 }
 
-int getWaterLevel() {
-    static int lastValidLevels[3] = {0, 0, 0};  // Rolling buffer for last 3 valid readings
-    static int validReadingCount = 0;
-    
-    float distance = getDistence();
-    
-    // Validate distance reading
-    if (distance <= MIN_VALID_DISTANCE || distance > MAX_VALID_DISTANCE) {
-        pError.setPic(12);  // Show error picture
-        tWaterLevel.setText("Error");
-        return lastValidLevels[0];  // Return most recent valid reading
-    }
-    
-    int currentLevel = calcuateWaterLevel(distance);
-    if (currentLevel < 0) {  // Invalid calculation
-        pError.setPic(12);
-        tWaterLevel.setText("Error");
-        return lastValidLevels[0];
-    }
-    
-    // Shift previous readings and add new one
-    for (int i = 2; i > 0; i--) {
-        lastValidLevels[i] = lastValidLevels[i-1];
-    }
-    lastValidLevels[0] = currentLevel;
-    
-    if (validReadingCount < 3) validReadingCount++;
-    
-    // Calculate smoothed reading
-    int smoothedLevel = 0;
-    for (int i = 0; i < validReadingCount; i++) {
-        smoothedLevel += lastValidLevels[i];
-    }
-    smoothedLevel /= validReadingCount;
-    
-    // Update display
-    pError.setPic(15);  // Hide error picture
-    char buffer[10];
-    sprintf(buffer, "%d", smoothedLevel);
-    tWaterLevel.setText(buffer);
-    
-    return smoothedLevel;
+int getWaterLevel()
+{
+  static int lastValidLevels[3] = {0, 0, 0}; // Rolling buffer for last 3 valid readings
+  static int validReadingCount = 0;
+
+  float distance = getDistence();
+
+  // Validate distance reading
+  if (distance <= MIN_VALID_DISTANCE || distance > MAX_VALID_DISTANCE)
+  {
+    pError.setPic(12); // Show error picture
+    tWaterLevel.setText("Error");
+    return lastValidLevels[0]; // Return most recent valid reading
+  }
+
+  int currentLevel = calcuateWaterLevel(distance);
+  if (currentLevel < 0)
+  { // Invalid calculation
+    pError.setPic(12);
+    tWaterLevel.setText("Error");
+    return lastValidLevels[0];
+  }
+
+  // Shift previous readings and add new one
+  for (int i = 2; i > 0; i--)
+  {
+    lastValidLevels[i] = lastValidLevels[i - 1];
+  }
+  lastValidLevels[0] = currentLevel;
+
+  if (validReadingCount < 3)
+    validReadingCount++;
+
+  // Calculate smoothed reading
+  int smoothedLevel = 0;
+  for (int i = 0; i < validReadingCount; i++)
+  {
+    smoothedLevel += lastValidLevels[i];
+  }
+  smoothedLevel /= validReadingCount;
+
+  // Update display
+  pError.setPic(15); // Hide error picture
+  char buffer[10];
+  sprintf(buffer, "%d", smoothedLevel);
+  tWaterLevel.setText(buffer);
+
+  return smoothedLevel;
 }
 
+void setMotorState()
+{
+  if (mode == false) // Automatic mode
+  {
+    if (AutoOnState == 1 && AutoOffState == 1)
+    {
+      // motor on Automaticly when water level is below OnLevel and motor state is off
+      if (waterLevel < OnLevel && motorState == false)
+      {
+        digitalWrite(led, HIGH);
+        Serial.println("Motor ON");
+        motorState = true; // Update the motor state
+      }
+      // motor off Automaticly when water level is above OffLevel and motor state is on
+      if (waterLevel > OffLevel && motorState == true)
+      {
+        digitalWrite(led, LOW);
+        Serial.println("Motor OFF");
+        motorState = false; // Update the motor state
+      }
+    }
+    else if (AutoOnState == 1 && AutoOffState == 0)
+    {
+      // motor on Automaticly when water level is below OnLevel and motor state is off
+      if (waterLevel < OnLevel && motorState == false)
+      {
+        digitalWrite(led, HIGH);
+        Serial.println("Motor ON");
+        motorState = true; // Update the motor state
+      }
+    }
+    else if (AutoOnState == 0 && AutoOffState == 1)
+    {
+      // motor off Automaticly when water level is above OffLevel and motor state is on
+      if (waterLevel > OffLevel && motorState == true)
+      {
+        digitalWrite(led, LOW);
+        Serial.println("Motor OFF");
+        motorState = false; // Update the motor state
+      }
+    }
+  }
+
+  else // Manual mode
+  {
+    if (AutoOnState == 1 && AutoOffState == 1)
+    {
+      // motor on Automaticly when water level is below OnLevel and motor state is off
+      if (waterLevel < OnLevel && motorState == false)
+      {
+        digitalWrite(led, HIGH);
+        Serial.println("Motor ON");
+        motorState = true; // Update the motor state
+      }
+      // motor off Automaticly when water level is above OffLevel and motor state is on
+      if (waterLevel > OffLevel && motorState == true)
+      {
+        digitalWrite(led, LOW);
+        Serial.println("Motor OFF");
+        motorState = false; // Update the motor state
+      }
+    }
+    else if (AutoOnState == 1 && AutoOffState == 0)
+    {
+      // motor on Automaticly when water level is below OnLevel and motor state is off
+      if (waterLevel < OnLevel && motorState == false)
+      {
+        digitalWrite(led, HIGH);
+        Serial.println("Motor ON");
+        motorState = true; // Update the motor state
+      }
+    }
+    else if (AutoOnState == 0 && AutoOffState == 1)
+    {
+      // motor off Automaticly when water level is above OffLevel and motor state is on
+      if (waterLevel > OffLevel && motorState == true)
+      {
+        digitalWrite(led, LOW);
+        Serial.println("Motor OFF");
+        motorState = false; // Update the motor state
+      }
+    }
+  }
+}
+
+void setSelectedMode()
+{
+  uint32_t autoButtonColor;
+  uint32_t manualButtonColor;
+  Serial.println("Getting button color...(Dashboard)");
+  if (bAutoONDashboard.Get_font_color_pco(&autoButtonColor) && bAutoOFFDashboard.Get_font_color_pco(&manualButtonColor))
+  {
+    Serial.print("Auto button font color is: ");
+    Serial.println(autoButtonColor); // Print the button color for debugging
+    Serial.print("Manual button font color is: ");
+    Serial.println(manualButtonColor); // Print the button color for debugging
+    if (autoButtonColor == 24521 && manualButtonColor == 65535)
+    {               // Green color
+      mode = false; // Automatic mode
+    }
+    else if (autoButtonColor == 65535 && manualButtonColor == 24521)
+    {              // White color
+      mode = true; // Manual mode
+    }
+  }
+}
