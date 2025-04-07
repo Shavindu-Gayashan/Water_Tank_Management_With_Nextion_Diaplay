@@ -24,7 +24,7 @@ This project implements a control system using an ESP32 microcontroller and Next
 
 - Arduino IDE
 - Nextion Library
-- EEPROM Library
+- EEPROM Library (to store some veriables in EEPROM)
 
 ## Pin Configuration
 

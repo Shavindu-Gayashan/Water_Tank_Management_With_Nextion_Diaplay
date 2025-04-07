@@ -43,6 +43,8 @@ bool mode = false; // Variable to track the mode (true for manual, false for aut
 bool ledState = false;   // Variable to track LED state
 bool motorState = false; // Variable to track motor state
 
+bool isError = false; // Variable to track error state
+
 unsigned long lastReadTime = 0; // To store the last reading time
 
 unsigned long lastModeCheckTime = 0;
@@ -108,6 +110,9 @@ int calcuateWaterLevel(float distance);
 int getWaterLevel();
 void setMotorState();
 void setSelectedMode();
+void motorOn();
+void motorOff();
+void bStartStop_pressed(void *ptr);
 
 void setup()
 {
@@ -130,7 +135,7 @@ void setup()
 
   // Attach button callbacks
   bSave.attachPush(bSave_pressed, &bSave);
-  bStartStop.attachPush(readEEPROM, &bStartStop);
+  bStartStop.attachPush(bStartStop_pressed, &bStartStop);
   bSettings.attachPush(bSettings_pressed, &bSettings);
   bBack.attachPush(bBack_pressed, &bBack);
 
@@ -171,8 +176,8 @@ void loop()
   if (currentPage == 0 && (currentTime - lastReadTime >= READING_INTERVAL))
   {
     waterLevel = getWaterLevel();
-    Serial.print("Water Level : ");
-    Serial.println(waterLevel);
+    // Serial.print("Water Level : ");
+    // Serial.println(waterLevel);
     lastReadTime = currentTime;
   }
 
@@ -187,6 +192,9 @@ void loop()
       setMotorState();
       lastMotorCheckTime = currentTime;
     }
+  }
+  if(isError == true){
+    motorOff();
   }
 }
 
@@ -203,9 +211,9 @@ void bSave_pressed(void *ptr)
     {
       if (variable.getValue(&value))
       {
-        Serial.print(name);
-        Serial.print(" is : ");
-        Serial.println(value);
+        // Serial.print(name);
+        // Serial.print(" is : ");
+        // Serial.println(value);
         return true; // Successfully retrieved the value
       }
       else
@@ -226,9 +234,9 @@ void bSave_pressed(void *ptr)
     {
       if (button.getValue(&value))
       {
-        Serial.print(name);
-        Serial.print(" is : ");
-        Serial.println(value);
+        // Serial.print(name);
+        // Serial.print(" is : ");
+        // Serial.println(value);
         return true; // Successfully retrieved the value
       }
       else
@@ -260,11 +268,11 @@ void bSave_pressed(void *ptr)
   }
   // Get the button color
   uint32_t buttonColor;
-  Serial.println("Getting button color...");
+  // Serial.println("Getting button color...");
   if (bAutoOnSettings.Get_font_color_pco(&buttonColor))
   {
-    Serial.print("Button font color is: ");
-    Serial.println(buttonColor); // Print the button color for debugging
+    // Serial.print("Button font color is: ");
+    // Serial.println(buttonColor); // Print the button color for debugging
     if (buttonColor == 24521)
     { // Green color
       if (getDualStateButtonValueWithRetry(btAutoOn, AutoOnState, "AutoOnState"))
@@ -295,10 +303,10 @@ void saveToEEPROM(uint32_t value, int address)
 {
   EEPROM.put(address, value); // Store the value in EEPROM at the specified address
   EEPROM.commit();            // Commit the changes to EEPROM
-  Serial.print("Saved value ");
-  Serial.print(value);
-  Serial.print(" to EEPROM address ");
-  Serial.println(address);
+  // Serial.print("Saved value ");
+  // Serial.print(value);
+  // Serial.print(" to EEPROM address ");
+  // Serial.println(address);
 }
 
 // Read value from EEPROM
@@ -330,6 +338,14 @@ void readEEPROM(void *ptr)
   Serial.print("ManualOffState: ");
   Serial.println(EEPROM.read(EEPROM_MANUAL_OFF_STATE_ADDR));
   Serial.println("EEPROM values read successfully.");
+}
+
+void bStartStop_pressed(void *ptr){
+  if ((motorState == false && isError == false) || (motorState == false && mode == true )){
+    motorOn();
+  }else if (motorState == true){
+    motorOff();
+  }
 }
 
 void bSettings_pressed(void *ptr)
@@ -432,6 +448,7 @@ int getWaterLevel()
   { // Invalid calculation
     pError.setPic(12);
     tWaterLevel.setText("Error");
+    isError = true; // Set error state
     return lastValidLevels[0];
   }
 
@@ -512,16 +529,12 @@ void setMotorState()
       // motor on Automaticly when water level is below OnLevel and motor state is off
       if (waterLevel < OnLevel && motorState == false)
       {
-        digitalWrite(led, HIGH);
-        Serial.println("Motor ON");
-        motorState = true; // Update the motor state
+        motorOn();
       }
       // motor off Automaticly when water level is above OffLevel and motor state is on
       if (waterLevel > OffLevel && motorState == true)
       {
-        digitalWrite(led, LOW);
-        Serial.println("Motor OFF");
-        motorState = false; // Update the motor state
+        motorOff();
       }
     }
     else if (AutoOnState == 1 && AutoOffState == 0)
@@ -529,9 +542,7 @@ void setMotorState()
       // motor on Automaticly when water level is below OnLevel and motor state is off
       if (waterLevel < OnLevel && motorState == false)
       {
-        digitalWrite(led, HIGH);
-        Serial.println("Motor ON");
-        motorState = true; // Update the motor state
+        motorOn();
       }
     }
     else if (AutoOnState == 0 && AutoOffState == 1)
@@ -539,9 +550,7 @@ void setMotorState()
       // motor off Automaticly when water level is above OffLevel and motor state is on
       if (waterLevel > OffLevel && motorState == true)
       {
-        digitalWrite(led, LOW);
-        Serial.println("Motor OFF");
-        motorState = false; // Update the motor state
+        motorOff();
       }
     }
   }
@@ -566,5 +575,21 @@ void setSelectedMode()
     {              // White color
       mode = true; // Manual mode
     }
+  }
+}
+
+void motorOn(){
+  if (motorState == false && isError == false) {
+    digitalWrite(led, HIGH);
+    Serial.println("Motor ON");
+    motorState = true; // Update the motor state
+  }
+}
+
+void motorOff(){
+  if (motorState == true) {
+    digitalWrite(led, LOW);
+    Serial.println("Motor OFF");
+    motorState = false; // Update the motor state
   }
 }
